@@ -59,12 +59,17 @@ def render_scoring_breakdown(r: dict) -> None:
     st.dataframe(rows, use_container_width=True, hide_index=True)
 
 
-def render_extractions(r: dict) -> None:
+def render_extractions(r: dict, *, nested: bool = False) -> None:
     jd = r.get("jd_extraction")
     resume = r.get("resume_extraction")
     if not jd and not resume:
         return
-    with st.expander("Extracted Data"):
+    if nested:
+        st.markdown("**Extracted Data**")
+        body = st.container()
+    else:
+        body = st.expander("Extracted Data")
+    with body:
         if jd:
             st.write("**From Job Description**")
             st.json(jd)
@@ -73,7 +78,20 @@ def render_extractions(r: dict) -> None:
             st.json(resume)
 
 
-def render_components(r: dict) -> None:
+def _render_component_detail(comp: dict) -> None:
+    st.write(comp["summary"])
+    c1, c2 = st.columns(2)
+    with c1:
+        st.write("**Highlights**")
+        for h in comp["highlights"]:
+            st.write(f"- {h}")
+    with c2:
+        st.write("**Concerns**")
+        for c in comp["concerns"]:
+            st.write(f"- {c}")
+
+
+def render_components(r: dict, *, nested: bool = False) -> None:
     present = [(k, label) for k, label in COMPONENT_KEYS if r.get(k)]
     if not present:
         return
@@ -86,20 +104,15 @@ def render_components(r: dict) -> None:
 
     for key, label in present:
         comp = r[key]
-        with st.expander(f"{label} — {comp['score']}/100"):
-            st.write(comp["summary"])
-            c1, c2 = st.columns(2)
-            with c1:
-                st.write("**Highlights**")
-                for h in comp["highlights"]:
-                    st.write(f"- {h}")
-            with c2:
-                st.write("**Concerns**")
-                for c in comp["concerns"]:
-                    st.write(f"- {c}")
+        if nested:
+            st.markdown(f"**{label}** — {comp['score']}/100")
+            _render_component_detail(comp)
+        else:
+            with st.expander(f"{label} — {comp['score']}/100"):
+                _render_component_detail(comp)
 
 
-def render_result(r: dict, show_components: bool = True) -> None:
+def render_result(r: dict, show_components: bool = True, *, nested: bool = False) -> None:
     method = r.get("evaluation_method", "direct")
     st.caption(f"Method: **{method}** — {'single LLM evaluation' if method == 'direct' else 'LangChain: extract → compare & score'}")
 
@@ -113,8 +126,8 @@ def render_result(r: dict, show_components: bool = True) -> None:
 
     if show_components:
         render_scoring_breakdown(r)
-        render_components(r)
-        render_extractions(r)
+        render_components(r, nested=nested)
+        render_extractions(r, nested=nested)
 
     col_s, col_g = st.columns(2)
     with col_s:
@@ -222,7 +235,7 @@ with tab_batch:
             st.subheader("Ranked Results")
             for name, r in ranked:
                 with st.expander(f"{name} — {r['fit_score']}/100 ({REC_LABELS.get(r['recommendation'], '')})"):
-                    render_result(r, show_components=True)
+                    render_result(r, show_components=True, nested=True)
 
         failed = [(name, r) for name, r in results if r.get("status") == "failed"]
         if failed:

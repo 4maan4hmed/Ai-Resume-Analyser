@@ -49,7 +49,7 @@ def compute_score(
     if certifications:
         named["certifications"] = certifications
     else:
-        weights["skills"] += weights.pop("certifications")
+        weights["skills"] = round(weights["skills"] + weights.pop("certifications"), 2)
 
     breakdown: list[ScoreBreakdown] = []
     total = 0.0
